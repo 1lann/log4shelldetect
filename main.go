@@ -104,7 +104,7 @@ func checkJar(pathToFile string) {
 		return nil
 	}()
 	if err != nil {
-		printStatus(pathToFile, StatusUnknown, "")
+		printStatus(pathToFile, StatusUnknown, err.Error())
 		return
 	}
 }
