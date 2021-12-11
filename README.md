@@ -2,6 +2,8 @@
 
 Scans a file or folder recursively for jar files that may be vulnerable to Log4Shell (CVE-2021-44228) by inspecting the class paths inside the jar.
 
+If you only want possibly vulnerable jars to be printed rather than all jars, run with `-mode list`.
+
 ## License
 
 Code here is released to the public domain under [unlicense](/LICENSE).
