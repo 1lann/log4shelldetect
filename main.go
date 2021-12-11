@@ -82,19 +82,28 @@ func checkJar(pathToFile string) {
 
 		var vulnClassFound = false
 		var patchedClassFound = false
+		var maybeClassFound = ""
 
 		for _, file := range rd.File {
-			if strings.HasSuffix(file.Name, "apache/logging/log4j/core/lookup/JndiLookup.class") {
+			if strings.HasSuffix(file.Name, "log4j/core/lookup/JndiLookup.class") {
 				vulnClassFound = true
 			}
 
-			if strings.HasSuffix(file.Name, "apache/logging/log4j/core/lookup/JndiRestrictedLookup.class") {
+			if strings.HasSuffix(file.Name, "lookup/JndiLookup.class") {
+				maybeClassFound = file.Name
+			}
+
+			if strings.HasSuffix(file.Name, "log4j/core/lookup/JndiRestrictedLookup.class") {
 				patchedClassFound = true
 			}
 		}
 
 		if !vulnClassFound {
-			printStatus(pathToFile, StatusOK, "")
+			if maybeClassFound != "" {
+				printStatus(pathToFile, StatusMaybe, maybeClassFound)
+			} else {
+				printStatus(pathToFile, StatusOK, "")
+			}
 		} else if patchedClassFound {
 			printStatus(pathToFile, StatusPatched, "")
 		} else {
@@ -115,6 +124,7 @@ const (
 	StatusOK = iota
 	StatusVulnerable
 	StatusPatched
+	StatusMaybe
 	StatusUnknown
 )
 
@@ -123,7 +133,7 @@ func printStatus(fileName string, status int, desc string) {
 	defer printMutex.Unlock()
 
 	if *mode == "list" {
-		if status == StatusVulnerable {
+		if status == StatusVulnerable || status == StatusMaybe {
 			fmt.Println(fileName)
 		}
 
@@ -141,6 +151,9 @@ func printStatus(fileName string, status int, desc string) {
 	case StatusVulnerable:
 		c = color.New(color.FgRed)
 		c.Print("VULNRBL ")
+	case StatusMaybe:
+		c = color.New(color.FgRed)
+		c.Print("MAYBE   ")
 	case StatusUnknown:
 		c = color.New(color.FgYellow)
 		c.Print("UNKNOWN ")
