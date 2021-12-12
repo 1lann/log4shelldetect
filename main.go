@@ -78,7 +78,7 @@ func main() {
 			log.Printf("skipping %q: %v", osPathname, err)
 			return godirwalk.SkipNode
 		},
-		Unsorted: true, // (optional) set true for faster yet non-deterministic enumeration (see godoc)
+		Unsorted: true,
 	})
 	if err != nil {
 		panic(err)
