@@ -194,7 +194,7 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 
 			// If there is a jar in the jar, recurse into it.
 			ext := strings.ToLower(path.Ext(file.Name))
-			if ext == ".jar" || ext == ".war" {
+			if ext == ".jar" || ext == ".war" || ext == ".ear" {
 				var subStatus Status
 				var subDesc string
 				// If the jar is larger than 500 MB, this can be dangerous
