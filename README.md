@@ -4,6 +4,16 @@ Scans a file or folder recursively for jar files that may be vulnerable to Log4S
 
 If you only want possibly vulnerable jars to be printed rather than all jars, run with `-mode list`.
 
+## Usage
+
+```
+Usage: log4shelldetect [options] <path>
+
+Options:
+  -mode string
+        the output mode, either "report" (every jar pretty printed) or "list" (list of potentially vulnerable files) (default "report")
+```
+
 ## License
 
 Code here is released to the public domain under [unlicense](/LICENSE).
