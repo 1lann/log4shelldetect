@@ -59,7 +59,8 @@ func main() {
 	err = godirwalk.Walk(target, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			// For each file in the directory, check if it ends in ".jar"
-			if filepath.Ext(osPathname) == ".jar" {
+			ext := strings.ToLower(filepath.Ext(osPathname))
+			if ext == ".jar" || ext == ".war" {
 				pool <- struct{}{}
 				// If it is, take a goroutine (thread) from the thread pool
 				// and check the jar.
@@ -192,7 +193,8 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 			}
 
 			// If there is a jar in the jar, recurse into it.
-			if path.Ext(file.Name) == ".jar" {
+			ext := strings.ToLower(path.Ext(file.Name))
+			if ext == ".jar" || ext == ".war" {
 				var subStatus Status
 				var subDesc string
 				// If the jar is larger than 500 MB, this can be dangerous
