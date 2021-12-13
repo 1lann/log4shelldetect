@@ -60,7 +60,7 @@ func main() {
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
 			// For each file in the directory, check if it ends in ".jar"
 			ext := strings.ToLower(filepath.Ext(osPathname))
-			if ext == ".jar" || ext == ".war" {
+			if ext == ".jar" || ext == ".war" || ext == ".ear" || ext == ".zip" {
 				pool <- struct{}{}
 				// If it is, take a goroutine (thread) from the thread pool
 				// and check the jar.
@@ -89,6 +89,8 @@ func main() {
 	for i := 0; i < cap(pool); i++ {
 		pool <- struct{}{}
 	}
+
+	os.Exit(found)
 }
 
 // checkJar checks a given jar file and returns a status and description for whether
@@ -194,7 +196,7 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 
 			// If there is a jar in the jar, recurse into it.
 			ext := strings.ToLower(path.Ext(file.Name))
-			if ext == ".jar" || ext == ".war" {
+			if ext == ".jar" || ext == ".war" || ext == ".ear" || ext == ".zip" {
 				var subStatus Status
 				var subDesc string
 				// If the jar is larger than 500 MB, this can be dangerous
@@ -285,6 +287,8 @@ const (
 	StatusVulnerable
 )
 
+var found = 0
+
 // printStatus takes in the path to the file, status and description, and
 // prints the result out to stdout.
 func printStatus(fileName string, status Status, desc string) {
@@ -295,6 +299,7 @@ func printStatus(fileName string, status Status, desc string) {
 	if *mode == "list" {
 		if status == StatusVulnerable || status == StatusMaybe {
 			fmt.Println(fileName)
+			found = 3
 		}
 
 		return
@@ -309,12 +314,15 @@ func printStatus(fileName string, status Status, desc string) {
 	case StatusPatched:
 		c = color.New(color.FgGreen)
 		c.Print("PATCHED ")
+		found = 3
 	case StatusVulnerable:
 		c = color.New(color.FgRed)
 		c.Print("VULNRBL ")
+		found = 3
 	case StatusMaybe:
 		c = color.New(color.FgRed)
 		c.Print("MAYBE   ")
+		found = 3
 	case StatusUnknown:
 		c = color.New(color.FgYellow)
 		c.Print("UNKNOWN ")
