@@ -74,12 +74,12 @@ func main() {
 					status, desc := checkJar(osPathname, nil, 0, 0)
 					if *mode == "list" {
 						switch status {
-						case StatusVulnerable, StatusMaybe:
+						case StatusVulnerable, StatusMaybe, StatusOld:
 							atomic.StoreUint32(&hasNotableResults, 1)
 						}
 					} else {
 						switch status {
-						case StatusVulnerable, StatusMaybe, StatusPatched:
+						case StatusVulnerable, StatusMaybe, StatusOld, StatusPatched:
 							atomic.StoreUint32(&hasNotableResults, 1)
 						}
 					}
