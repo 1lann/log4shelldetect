@@ -20,7 +20,7 @@ import (
 
 var printMutex = new(sync.Mutex)
 
-var mode = flag.String("mode", "report", "the output mode, either \"report\" (every jar pretty printed) or \"list\" (list of potentially vulnerable files)")
+var mode = flag.String("mode", "report", "the output mode, either \"report\" (every java archive pretty printed) or \"list\" (list of potentially vulnerable files)")
 var includeZip = flag.Bool("include-zip", false, "include zip files in the scan")
 
 func main() {
@@ -31,9 +31,10 @@ func main() {
 
 	if flag.Arg(0) == "" {
 		stderr.Println("Usage: log4shelldetect [options] <path>")
-		stderr.Println("Scans a file or folder recursively for jar files that may be")
-		stderr.Println("vulnerable to Log4Shell (CVE-2021-44228) by inspecting")
-		stderr.Println("the class paths inside the Jar")
+		stderr.Println("Scans a file or folder recursively for Java programs that may be")
+		stderr.Println("vulnerable to Log4Shell (CVE-2021-44228) and the incomplete patch")
+		stderr.Println("in Log4j 2.15.0 (CVE-2021-45046) by inspecting")
+		stderr.Println("the class paths inside Java archives")
 		stderr.Println("")
 		stderr.Println("Options:")
 		flag.PrintDefaults()
@@ -64,7 +65,7 @@ func main() {
 	// Scan through the directory provided recursively.
 	err = godirwalk.Walk(target, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
-			// For each file in the directory, check if it ends in ".jar"
+			// For each file in the directory, check if it ends in a known Java archive extension
 			if shouldCheck(osPathname) {
 				pool <- struct{}{}
 				// If it is, take a goroutine (thread) from the thread pool
@@ -129,8 +130,8 @@ func shouldCheck(filename string) bool {
 	return false
 }
 
-// checkJar checks a given jar file and returns a status and description for whether
-// or not the Log4Shell vulnerability is detected in the jar.
+// checkJar checks a given archive file and returns a status and description for whether
+// or not the Log4Shell vulnerability is detected in the archive.
 func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status Status, desc string) {
 	// checkJar also checks for embedded jars (jars inside jars) as this is fairly common occurrence
 	// in some jar distributions.
@@ -171,6 +172,7 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 
 		// Define some default variables.
 		var vulnClassFound = false
+		var oldPatchFound = false
 		var patchedClassFound = false
 		var maybeClassFound = ""
 		var worstSubStatus Status = StatusOK
@@ -196,7 +198,8 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 			// JmsAppender is where the patch for Log4Shell is made in
 			// the latest versions of Log4j. If we find it, we can extract it
 			// and inspect it for the patched code.
-			if strings.HasSuffix(file.Name, "log4j/core/appender/mom/JmsAppender$Builder.class") {
+			if strings.HasSuffix(file.Name, "JmsAppender$Builder.class") ||
+				strings.HasSuffix(file.Name, "JndiManager.class") {
 				err := func() error {
 					// If for some reason the class file is bigger than 1 MB (it should be less then a few hundred kilobytes),
 					// we abort.
@@ -217,8 +220,14 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 						return err
 					}
 
+					if bytes.Contains(data, []byte("allowedLdapHosts")) &&
+						bytes.Contains(data, []byte("allowedJndiProtocols")) &&
+						bytes.Contains(data, []byte("allowedLdapClasses")) {
+						oldPatchFound = true
+					}
+
 					// And check if it contains the known patched code.
-					if bytes.Contains(data, []byte("allowedLdapHosts")) {
+					if bytes.Contains(data, []byte("log4j2.enableJndi")) {
 						// If so, indicate that the jar is patched.
 						patchedClassFound = true
 					}
@@ -292,6 +301,9 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 		} else if patchedClassFound {
 			status = StatusPatched
 			desc = ""
+		} else if oldPatchFound {
+			status = StatusOld
+			desc = ""
 		} else {
 			status = StatusVulnerable
 			desc = ""
@@ -319,6 +331,7 @@ const (
 	StatusPatched
 	StatusUnknown
 	StatusMaybe
+	StatusOld
 	StatusVulnerable
 )
 
@@ -330,7 +343,7 @@ func printStatus(fileName string, status Status, desc string) {
 
 	// If we're running in -mode list, we only print likely vulnerable files.
 	if *mode == "list" {
-		if status == StatusVulnerable || status == StatusMaybe {
+		if status == StatusVulnerable || status == StatusOld || status == StatusMaybe {
 			fmt.Println(fileName)
 		}
 
@@ -346,6 +359,9 @@ func printStatus(fileName string, status Status, desc string) {
 	case StatusPatched:
 		c = color.New(color.FgGreen)
 		c.Print("PATCHED ")
+	case StatusOld:
+		c = color.New(color.FgRed)
+		c.Print("OLD2.15 ")
 	case StatusVulnerable:
 		c = color.New(color.FgRed)
 		c.Print("VULNRBL ")

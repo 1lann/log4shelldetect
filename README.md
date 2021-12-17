@@ -1,6 +1,6 @@
 # log4shelldetect
 
-Scans a file or folder recursively for Java programs that may be vulnerable to Log4Shell (CVE-2021-44228) by inspecting the class paths inside files.
+Scans a file or folder recursively for Java programs that may be vulnerable to Log4Shell (CVE-2021-44228) and as of v0.0.5, the incomplete patch in Log4j v2.15.0 (CVE-2021-45046) as well, by inspecting the class paths inside files.
 
 If you only want possibly vulnerable files to be printed rather than all files, run with `-mode list`.
 
@@ -13,7 +13,7 @@ Options:
   -include-zip
         include zip files in the scan
   -mode string
-        the output mode, either "report" (every jar pretty printed) or "list" (list of potentially vulnerable files) (default "report")
+        the output mode, either "report" (every java archive pretty printed) or "list" (list of potentially vulnerable files) (default "report")
 ```
 
 ## License
