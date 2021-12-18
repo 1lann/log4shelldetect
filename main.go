@@ -31,10 +31,11 @@ func main() {
 
 	if flag.Arg(0) == "" {
 		stderr.Println("Usage: log4shelldetect [options] <path>")
-		stderr.Println("Scans a file or folder recursively for Java programs that may be")
-		stderr.Println("vulnerable to Log4Shell (CVE-2021-44228) and the incomplete patch")
-		stderr.Println("in Log4j 2.15.0 (CVE-2021-45046) by inspecting")
-		stderr.Println("the class paths inside Java archives")
+		stderr.Println("Scans a file or folder recursively for Java programs that may be vulnerable to:")
+		stderr.Println("- CVE-2021-44228 (Log4Shell) (v2.0.x - v2.14.x)")
+		stderr.Println("- CVE-2021-45046 (v2.15.x)")
+		stderr.Println("- CVE-2021-45105 (v2.16.x)")
+		stderr.Println("by inspecting the class paths inside Java archives")
 		stderr.Println("")
 		stderr.Println("Options:")
 		flag.PrintDefaults()
@@ -74,12 +75,12 @@ func main() {
 					status, desc := checkJar(osPathname, nil, 0, 0)
 					if *mode == "list" {
 						switch status {
-						case StatusVulnerable, StatusMaybe, StatusOld:
+						case StatusVulnerable, StatusMaybe, StatusOld, StatusSecondOld:
 							atomic.StoreUint32(&hasNotableResults, 1)
 						}
 					} else {
 						switch status {
-						case StatusVulnerable, StatusMaybe, StatusOld, StatusPatched:
+						case StatusVulnerable, StatusMaybe, StatusOld, StatusPatched, StatusSecondOld:
 							atomic.StoreUint32(&hasNotableResults, 1)
 						}
 					}
@@ -172,8 +173,8 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 
 		// Define some default variables.
 		var vulnClassFound = false
+		var secondPatchFound = false
 		var oldPatchFound = false
-		var patchedClassFound = false
 		var maybeClassFound = ""
 		var worstSubStatus Status = StatusOK
 		var worstDesc string
@@ -226,10 +227,8 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 						oldPatchFound = true
 					}
 
-					// And check if it contains the known patched code.
 					if bytes.Contains(data, []byte("log4j2.enableJndi")) {
-						// If so, indicate that the jar is patched.
-						patchedClassFound = true
+						secondPatchFound = true
 					}
 
 					return nil
@@ -298,8 +297,11 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 				status = StatusOK
 				desc = ""
 			}
-		} else if patchedClassFound {
+		} else if secondPatchFound && !oldPatchFound {
 			status = StatusPatched
+			desc = ""
+		} else if secondPatchFound {
+			status = StatusSecondOld
 			desc = ""
 		} else if oldPatchFound {
 			status = StatusOld
@@ -330,8 +332,9 @@ const (
 	StatusOK = iota
 	StatusPatched
 	StatusUnknown
-	StatusMaybe
+	StatusSecondOld
 	StatusOld
+	StatusMaybe
 	StatusVulnerable
 )
 
@@ -343,7 +346,8 @@ func printStatus(fileName string, status Status, desc string) {
 
 	// If we're running in -mode list, we only print likely vulnerable files.
 	if *mode == "list" {
-		if status == StatusVulnerable || status == StatusOld || status == StatusMaybe {
+		if status == StatusVulnerable || status == StatusOld ||
+			status == StatusMaybe || status == StatusSecondOld {
 			fmt.Println(fileName)
 		}
 
@@ -362,6 +366,9 @@ func printStatus(fileName string, status Status, desc string) {
 	case StatusOld:
 		c = color.New(color.FgRed)
 		c.Print("OLD2.15 ")
+	case StatusSecondOld:
+		c = color.New(color.FgRed)
+		c.Print("OLD2.16 ")
 	case StatusVulnerable:
 		c = color.New(color.FgRed)
 		c.Print("VULNRBL ")
