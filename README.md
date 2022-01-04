@@ -20,6 +20,8 @@ If you only want possibly vulnerable files to be printed rather than all files, 
 Usage: log4shelldetect [options] <path>
 
 Options:
+  -exclude value
+        List of directories to exclude
   -include-zip
         include zip files in the scan
   -mode string
