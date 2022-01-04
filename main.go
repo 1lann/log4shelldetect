@@ -23,7 +23,22 @@ var printMutex = new(sync.Mutex)
 var mode = flag.String("mode", "report", "the output mode, either \"report\" (every java archive pretty printed) or \"list\" (list of potentially vulnerable files)")
 var includeZip = flag.Bool("include-zip", false, "include zip files in the scan")
 
+type exclusions []string
+
+func (i *exclusions) String() string {
+	return "my string representation"
+}
+
+func (i *exclusions) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
+var excludedDirs exclusions
+
 func main() {
+	flag.Var(&excludedDirs, "exclude", "List of directories to exclude")
+
 	// Parse the arguments and flags provided to the program.
 	flag.Parse()
 
@@ -66,7 +81,13 @@ func main() {
 	// Scan through the directory provided recursively.
 	err = godirwalk.Walk(target, &godirwalk.Options{
 		Callback: func(osPathname string, de *godirwalk.Dirent) error {
+			// Check to see if we should be skipping this file due to any exclusions.
+			if shouldSkip(osPathname) {
+				return nil
+			}
+
 			// For each file in the directory, check if it ends in a known Java archive extension
+
 			if shouldCheck(osPathname) {
 				pool <- struct{}{}
 				// If it is, take a goroutine (thread) from the thread pool
@@ -114,6 +135,17 @@ func main() {
 	if hasNotableResults != 0 {
 		os.Exit(3)
 	}
+}
+
+func shouldSkip(filename string) bool {
+	if len(excludedDirs) > 0 {
+		for _, eDir := range excludedDirs {
+			if strings.HasPrefix(strings.ToLower(filename), strings.ToLower(eDir)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func shouldCheck(filename string) bool {
