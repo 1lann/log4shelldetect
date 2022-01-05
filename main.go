@@ -75,12 +75,12 @@ func main() {
 					status, desc := checkJar(osPathname, nil, 0, 0)
 					if *mode == "list" {
 						switch status {
-						case StatusVulnerable, StatusMaybe, StatusOld, StatusSecondOld:
+						case StatusVulnerable, StatusMaybe, StatusOld, StatusSecondOld, StatusThirdOld:
 							atomic.StoreUint32(&hasNotableResults, 1)
 						}
 					} else {
 						switch status {
-						case StatusVulnerable, StatusMaybe, StatusOld, StatusPatched, StatusSecondOld:
+						case StatusVulnerable, StatusMaybe, StatusOld, StatusPatched, StatusSecondOld, StatusThirdOld:
 							atomic.StoreUint32(&hasNotableResults, 1)
 						}
 					}
@@ -174,6 +174,7 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 		// Define some default variables.
 		var vulnClassFound = false
 		var secondPatchFound = false
+		var thirdPatchFound = false
 		var oldPatchFound = false
 		var maybeClassFound = ""
 		var worstSubStatus Status = StatusOK
@@ -229,6 +230,12 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 
 					if bytes.Contains(data, []byte("log4j2.enableJndi")) {
 						secondPatchFound = true
+					}
+
+					// 2.17 adds isJndiEnabled and 2.17.1 adds isJndiJdbcEnabled
+					if bytes.Contains(data, []byte("isJndiEnabled")) &&
+						!bytes.Contains(data, []byte("isJndiJdbcEnabled")) {
+						thirdPatchFound = true
 					}
 
 					return nil
@@ -297,6 +304,9 @@ func checkJar(pathToFile string, rd io.ReaderAt, size int64, depth int) (status 
 				status = StatusOK
 				desc = ""
 			}
+		} else if thirdPatchFound {
+			status = StatusThirdOld
+			desc = ""
 		} else if secondPatchFound && !oldPatchFound {
 			status = StatusPatched
 			desc = ""
@@ -333,6 +343,7 @@ const (
 	StatusPatched
 	StatusUnknown
 	StatusSecondOld
+	StatusThirdOld
 	StatusOld
 	StatusMaybe
 	StatusVulnerable
@@ -347,7 +358,8 @@ func printStatus(fileName string, status Status, desc string) {
 	// If we're running in -mode list, we only print likely vulnerable files.
 	if *mode == "list" {
 		if status == StatusVulnerable || status == StatusOld ||
-			status == StatusMaybe || status == StatusSecondOld {
+			status == StatusMaybe || status == StatusSecondOld ||
+			status == StatusThirdOld {
 			fmt.Println(fileName)
 		}
 
@@ -369,6 +381,9 @@ func printStatus(fileName string, status Status, desc string) {
 	case StatusSecondOld:
 		c = color.New(color.FgRed)
 		c.Print("OLD2.16 ")
+	case StatusThirdOld:
+		c = color.New(color.FgRed)
+		c.Print("OLD2.17 ")
 	case StatusVulnerable:
 		c = color.New(color.FgRed)
 		c.Print("VULNRBL ")
